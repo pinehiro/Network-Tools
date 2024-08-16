@@ -1,0 +1,1095 @@
+<html><head><base href="https://sophosanalyzer.net/"><meta charset="UTF-8"><title>Sophos Firewall Rule Analyzer</title><style>
+body {
+    font-family: Arial, "Microsoft JhengHei", sans-serif;
+    line-height: 1.6;
+    color: #333;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #f4f4f4;
+}
+h1, h2, h3 {
+    color: #0066cc;
+}
+.container {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+button, select {
+    background-color: #0066cc;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 4px;
+    margin-right: 10px;
+}
+button:hover, select:hover {
+    background-color: #0056b3;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+th {
+    background-color: #f2f2f2;
+}
+.chart-container {
+    width: 100%;
+    max-width: 800px;
+    margin: 20px auto;
+}
+.accept {
+    background-color: #d4edda;
+    color: #155724;
+}
+.reject {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+.disabled {
+    background-color: #e9ecef;
+    color: #6c757d;
+}
+.filter-container {
+    margin-bottom: 20px;
+}
+.filter-container select {
+    padding: 5px;
+    margin-right: 10px;
+}
+.filter-label {
+    display: inline-block;
+    width: 100px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+#relationshipChart {
+    width: 100%;
+    height: 600px;
+    border: 1px solid #ddd;
+}
+.language-switch {
+    text-align: right;
+    margin-bottom: 20px;
+}
+.author {
+    text-align: center;
+    font-style: italic;
+    margin-top: 20px;
+}
+.statistics {
+    background-color: #e9ecef;
+    padding: 15px;
+    border-radius: 5px;
+    margin-top: 20px;
+}
+.statistics h3 {
+    margin-top: 0;
+}
+.legend {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin: 5px 10px;
+}
+.legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.2/dist/vis-network.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</head>
+<body>
+    <div class="language-switch">
+        <button onclick="switchLanguage('en')">English</button>
+        <button onclick="switchLanguage('zh')">中文</button>
+    </div>
+    <div class="container">
+        <h1 id="title">Sophos Firewall Rule Analyzer</h1>
+        <input type="file" id="xmlFileInput" accept=".xml">
+        <button onclick="analyzeRules()" id="analyzeBtn">Analyze Rules</button>
+        <button onclick="exportToCSV()" id="exportBtn">Export Rules CSV</button>
+        <button onclick="exportSubnetToCSV()" id="exportSubnetBtn">Export Subnet CSV</button>
+        <button onclick="exportHostObjectToCSV()" id="exportHostBtn">Export Host Object CSV</button>
+        <button onclick="exportServiceObjectToCSV()" id="exportServiceBtn">Export Service Object CSV</button>
+        <button onclick="generateFullRelationshipChart()" id="generateFullChartBtn">Generate Full Relationship Chart</button>
+        <button onclick="exportRelationshipData()" id="exportRelationshipBtn">Export Relationship Data</button>
+    </div>
+    <div id="analysisResult" class="container">
+        <div class="filter-container">
+            <div>
+                <label for="nameFilter" class="filter-label" id="nameFilterLabel">Name:</label>
+                <select id="nameFilter"></select>
+            </div>
+            <div>
+                <label for="sourceFilter" class="filter-label" id="sourceFilterLabel">Source:</label>
+                <select id="sourceFilter"></select>
+            </div>
+            <div>
+                <label for="destFilter" class="filter-label" id="destFilterLabel">Destination:</label>
+                <select id="destFilter"></select>
+            </div>
+            <div>
+                <label for="serviceFilter" class="filter-label" id="serviceFilterLabel">Service:</label>
+                <select id="serviceFilter"></select>
+            </div>
+            <div>
+                <label for="actionFilter" class="filter-label" id="actionFilterLabel">Action:</label>
+                <select id="actionFilter"></select>
+            </div>
+            <button onclick="applyFilters()" id="applyFilterBtn">Apply Filters</button>
+            <button onclick="resetFilters()" id="resetFilterBtn">Reset Filters</button>
+        </div>
+        <div id="ruleTable"></div>
+        <div id="statistics" class="statistics"></div>
+    </div>
+    <div class="chart-container">
+        <canvas id="subnetObjectChart"></canvas>
+    </div>
+    <div class="chart-container">
+        <canvas id="hostObjectChart"></canvas>
+    </div>
+    <div class="chart-container">
+        <canvas id="subnetPolicyRelationChart"></canvas>
+    </div>
+    <div class="chart-container">
+        <canvas id="hostPolicyRelationChart"></canvas>
+    </div>
+    <div class="container">
+        <h2 id="relationshipChartTitle">Rule Relationship Chart</h2>
+        <div>
+            <label for="ruleSelect" id="ruleSelectLabel">Select Rule:</label>
+            <select id="ruleSelect"></select>
+            <button onclick="generateRelationshipChart()" id="generateChartBtn">Generate Chart</button>
+        </div>
+        <div id="relationshipChart"></div>
+        <div class="legend" id="chartLegend"></div>
+    </div>
+    <div class="author">Created by FUSHENG_Hiro</div>
+
+    <script>
+    let globalRules = [];
+    let network;
+    let currentLanguage = 'en';
+
+    const translations = {
+        en: {
+            title: "Sophos Firewall Rule Analyzer",
+            analyzeBtn: "Analyze Rules",
+            exportBtn: "Export Rules CSV",
+            exportSubnetBtn: "Export Subnet CSV",
+            exportHostBtn: "Export Host Object CSV",
+            exportServiceBtn: "Export Service Object CSV",
+            applyFilterBtn: "Apply Filters",
+            resetFilterBtn: "Reset Filters",
+            relationshipChartTitle: "Rule Relationship Chart",
+            name: "Name",
+            source: "Source",
+            destination: "Destination",
+            service: "Service",
+            action: "Action",
+            zone: "Zone",
+            network: "Network",
+            totalRules: "Total Rules",
+            ruleActionDistribution: "Rule Action Distribution",
+            zoneUsageDistribution: "Zone Usage Distribution",
+            subnetObjectUsage: "Subnet Object Usage",
+            hostObjectUsage: "Host Object Usage",
+            subnetPolicyRelation: "Subnet Relation to Firewall Policies",
+            hostPolicyRelation: "Host Relation to Firewall Policies",
+            relatedRules: "Related Rules",
+            statistics: "Statistics",
+            totalObjects: "Total Objects",
+            totalServices: "Total Services",
+            totalAccept: "Total Accept Rules",
+            totalReject: "Total Reject Rules",
+            totalSubnets: "Total Subnets",
+            disable: "Disable",
+            selectRule: "Select Rule",
+            generateChart: "Generate Chart",
+            legendRule: "Rule",
+            legendZone: "Zone",
+            legendNetwork: "Network",
+            legendService: "Service",
+            generateFullChartBtn: "Generate Full Relationship Chart",
+            exportRelationshipBtn: "Export Relationship Data"
+        },
+        zh: {
+            title: "Sophos 防火牆規則分析工具",
+            analyzeBtn: "分析規則",
+            exportBtn: "匯出規則 CSV",
+            exportSubnetBtn: "匯出 Subnet CSV",
+            exportHostBtn: "匯出 Host 物件 CSV",
+            exportServiceBtn: "匯出服務物件 CSV",
+            applyFilterBtn: "套用篩選",
+            resetFilterBtn: "重置篩選",
+            relationshipChartTitle: "規則關聯圖",
+            name: "名稱",
+            source: "來源",
+            destination: "目的地",
+            service: "服務",
+            action: "動作",
+            zone: "區域",
+            network: "網路",
+            totalRules: "總規則數量",
+            ruleActionDistribution: "規則動作分佈",
+            zoneUsageDistribution: "區域使用分佈",
+            subnetObjectUsage: "Subnet 物件使用情況",
+            hostObjectUsage: "Host 物件使用情況",
+            subnetPolicyRelation: "Subnet 關聯到防火牆策略",
+            hostPolicyRelation: "Host 關聯到防火牆策略",
+            relatedRules: "關聯規則",
+            statistics: "統計資訊",
+            totalObjects: "總物件數量",
+            totalServices: "總服務數量",
+            totalAccept: "總允許規則數量",
+            totalReject: "總拒絕規則數量",
+            totalSubnets: "總子網路數量",
+            disable: "停用",
+            selectRule: "選擇規則",
+            generateChart: "產生圖表",
+            legendRule: "規則",
+            legendZone: "區域",
+            legendNetwork: "網路",
+            legendService: "服務",
+            generateFullChartBtn: "產生完整關聯圖",
+            exportRelationshipBtn: "匯出關聯數據"
+        }
+    };
+
+    function switchLanguage(lang) {
+        currentLanguage = lang;
+        document.getElementById('title').textContent = translations[lang].title;
+        document.getElementById('analyzeBtn').textContent = translations[lang].analyzeBtn;
+        document.getElementById('exportBtn').textContent = translations[lang].exportBtn;
+        document.getElementById('exportSubnetBtn').textContent = translations[lang].exportSubnetBtn;
+        document.getElementById('exportHostBtn').textContent = translations[lang].exportHostBtn;
+        document.getElementById('exportServiceBtn').textContent = translations[lang].exportServiceBtn;
+        document.getElementById('applyFilterBtn').textContent = translations[lang].applyFilterBtn;
+        document.getElementById('resetFilterBtn').textContent = translations[lang].resetFilterBtn;
+        document.getElementById('relationshipChartTitle').textContent = translations[lang].relationshipChartTitle;
+        document.getElementById('nameFilterLabel').textContent = translations[lang].name + ':';
+        document.getElementById('sourceFilterLabel').textContent = translations[lang].source + ':';
+        document.getElementById('destFilterLabel').textContent = translations[lang].destination + ':';
+        document.getElementById('serviceFilterLabel').textContent = translations[lang].service + ':';
+        document.getElementById('actionFilterLabel').textContent = translations[lang].action + ':';
+        document.getElementById('ruleSelectLabel').textContent = translations[lang].selectRule + ':';
+        document.getElementById('generateChartBtn').textContent = translations[lang].generateChart;
+        document.getElementById('generateFullChartBtn').textContent = translations[lang].generateFullChartBtn;
+        document.getElementById('exportRelationshipBtn').textContent = translations[lang].exportRelationshipBtn;
+        updateChartLegend();
+        if (globalRules.length > 0) {
+            displayAnalysis(globalRules);
+            drawSubnetObjectChart(globalRules);
+            drawHostObjectChart(globalRules);
+            drawSubnetPolicyRelationChart(globalRules);
+            drawHostPolicyRelationChart(globalRules);
+            updateRuleSelect();
+        }
+    }
+
+    function analyzeRules() {
+        const fileInput = document.getElementById('xmlFileInput');
+        const file = fileInput.files[0];
+        if (!file) {
+            alert(currentLanguage === 'en' ? 'Please select an XML file' : '請選擇 XML 文件');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const xmlContent = e.target.result;
+            globalRules = parseRules(xmlContent);
+            displayAnalysis(globalRules);
+            drawSubnetObjectChart(globalRules);
+            drawHostObjectChart(globalRules);
+            drawSubnetPolicyRelationChart(globalRules);
+            drawHostPolicyRelationChart(globalRules);
+            updateFilterOptions(globalRules);
+            displayStatistics(globalRules);
+            updateRuleSelect();
+        };
+        reader.readAsText(file);
+    }
+
+    function parseRules(xml) {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xml, "text/xml");
+        const rules = xmlDoc.getElementsByTagName("FirewallRule");
+        return Array.from(rules).map((rule, index) => {
+            const name = rule.getElementsByTagName("Name")[0]?.textContent || translations[currentLanguage].disable;
+            const sourceZones = Array.from(rule.querySelectorAll("NetworkPolicy > SourceZones > Zone")).map(zone => zone.textContent).join(", ") || "Any";
+            const sourceNetworks = Array.from(rule.querySelectorAll("NetworkPolicy > SourceNetworks > Network")).map(network => network.textContent).join(", ") || "Any";
+            const destZones = Array.from(rule.querySelectorAll("NetworkPolicy > DestinationZones > Zone")).map(zone => zone.textContent).join(", ") || "Any";
+            const destNetworks = Array.from(rule.querySelectorAll("NetworkPolicy > DestinationNetworks > Network")).map(network => network.textContent).join(", ") || "Any";
+            const services = Array.from(rule.querySelectorAll("NetworkPolicy > Services > Service")).map(service => service.textContent).join(", ") || "Any";
+            const action = rule.querySelector("NetworkPolicy > Action")?.textContent || translations[currentLanguage].disable;
+            return { id: index + 1, name, sourceZones, sourceNetworks, destZones, destNetworks, services, action };
+        });
+    }
+
+    function displayAnalysis(rules) {
+        let html = `<h2>${translations[currentLanguage].title}</h2>`;
+        
+        html += `<table id="rulesTable"><tr><th>ID</th><th>${translations[currentLanguage].name}</th><th>${translations[currentLanguage].source}</th><th>${translations[currentLanguage].destination}</th><th>${translations[currentLanguage].service}</th><th>${translations[currentLanguage].action}</th></tr>`;
+        rules.forEach(rule => {
+            let actionClass = 'disabled';
+            if (rule.action.toLowerCase() === 'accept') {
+                actionClass = 'accept';
+            } else if (rule.action.toLowerCase() === 'reject' || rule.action.toLowerCase() === 'drop') {
+                actionClass = 'reject';
+            }
+            html += `<tr class="${actionClass}">
+                <td>${rule.id}</td>
+                <td>${rule.name}</td>
+                <td>${translations[currentLanguage].zone}: ${rule.sourceZones}<br>${translations[currentLanguage].network}: ${rule.sourceNetworks}</td>
+                <td>${translations[currentLanguage].zone}: ${rule.destZones}<br>${translations[currentLanguage].network}: ${rule.destNetworks}</td>
+                <td>${rule.services}</td>
+                <td>${rule.action}</td>
+            </tr>`;
+        });
+        html += '</table>';
+
+        const totalRules = rules.length;
+        const actionCount = rules.reduce((acc, rule) => {
+            acc[rule.action] = (acc[rule.action] || 0) + 1;
+            return acc;
+        }, {});
+
+        html += `<h3>${translations[currentLanguage].totalRules}: ${totalRules}</h3>`;
+        Object.entries(actionCount).forEach(([action, count]) => {
+            html += `<p>${action}: ${count}</p>`;
+        });
+
+        html += '<div class="chart-container"><canvas id="ruleActionChart"></canvas></div>';
+        html += '<div class="chart-container"><canvas id="zoneDistributionChart"></canvas></div>';
+
+        document.getElementById('ruleTable').innerHTML = html;
+
+        drawActionChart(actionCount);
+        drawZoneDistributionChart(rules);
+    }
+
+    function drawActionChart(actionCount) {
+        const ctx = document.getElementById('ruleActionChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: Object.keys(actionCount),
+                datasets: [{
+                    data: Object.values(actionCount),
+                    backgroundColor: ['#28a745', '#dc3545', '#ffc107', '#17a2b8', '#6c757d']
+                }]
+            },
+            options: {
+                responsive: true,
+                title: {
+                    display: true,
+                    text: translations[currentLanguage].ruleActionDistribution
+                }
+            }
+        });
+    }
+
+    function drawZoneDistributionChart(rules) {
+        const zoneCount = {};
+        rules.forEach(rule => {
+            const zones = rule.sourceZones.split(', ').concat(rule.destZones.split(', '));
+            zones.forEach(zone => {
+                if (zone !== 'Any') {
+                    zoneCount[zone] = (zoneCount[zone] || 0) + 1;
+                }
+            });
+        });
+
+        const labels = Object.keys(zoneCount);
+        const data = Object.values(zoneCount);
+
+        const ctx = document.getElementById('zoneDistributionChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: translations[currentLanguage].zoneUsageDistribution,
+                    data: data,
+                    backgroundColor: '#007bff'
+                }]
+            },
+            options: {
+                responsive: true,
+                title: {
+                    display: true,
+                    text: translations[currentLanguage].zoneUsageDistribution
+                },
+                scales: {
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true
+                        }
+                    }]
+                }
+            }
+        });
+    }
+
+    function drawSubnetObjectChart(rules) {
+        const subnetObjects = {};
+        rules.forEach(rule => {
+            const networks = rule.sourceNetworks.split(', ').concat(rule.destNetworks.split(', '));
+            networks.forEach(network => {
+                if (network.includes('/')) {
+                    if (!subnetObjects[network]) {
+                        subnetObjects[network] = new Set();
+                    }
+                    subnetObjects[network].add(rule.id);
+                }
+            });
+        });
+
+        const labels = Object.keys(subnetObjects);
+        const data = labels.map(subnet => subnetObjects[subnet].size);
+
+        const ctx = document.getElementById('subnetObjectChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: translations[currentLanguage].subnetObjectUsage,
+                    data: data,
+                    backgroundColor: '#2196F3'
+                }]
+            },
+            options: {
+                responsive: true,
+                title: {
+                    display: true,
+                    text: translations[currentLanguage].subnetObjectUsage
+                },
+                scales: {
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true
+                        }
+                    }]
+                },
+                tooltips: {
+                    callbacks: {
+                        afterLabel: function(tooltipItem, data) {
+                            const subnet = labels[tooltipItem.index];
+                            return `${translations[currentLanguage].relatedRules}: ${Array.from(subnetObjects[subnet]).join(', ')}`;
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function drawHostObjectChart(rules) {
+        const hostObjects = {};
+        rules.forEach(rule => {
+            const networks = rule.sourceNetworks.split(', ').concat(rule.destNetworks.split(', '));
+            networks.forEach(network => {
+                if (!network.includes('/') && network !== 'Any') {
+                    if (!hostObjects[network]) {
+                        hostObjects[network] = new Set();
+                    }
+                    hostObjects[network].add(rule.id);
+                }
+            });
+        });
+
+        const labels = Object.keys(hostObjects);
+        const data = labels.map(host => hostObjects[host].size);
+
+        const ctx = document.getElementById('hostObjectChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: translations[currentLanguage].hostObjectUsage,
+                    data: data,
+                    backgroundColor: '#FFC107'
+                }]
+            },
+            options: {
+                responsive: true,
+                title: {
+                    display: true,
+                    text: translations[currentLanguage].hostObjectUsage
+                },
+                scales: {
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true
+                        }
+                    }]
+                },
+                tooltips: {
+                    callbacks: {
+                        afterLabel: function(tooltipItem, data) {
+                            const host = labels[tooltipItem.index];
+                            return `${translations[currentLanguage].relatedRules}: ${Array.from(hostObjects[host]).join(', ')}`;
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function drawSubnetPolicyRelationChart(rules) {
+        const subnetPolicyRelation = {};
+        rules.forEach(rule => {
+            const networks = rule.sourceNetworks.split(', ').concat(rule.destNetworks.split(', '));
+            networks.forEach(network => {
+                if (network.includes('/')) {
+                    if (!subnetPolicyRelation[network]) {
+                        subnetPolicyRelation[network] = {};
+                    }
+                    if (!subnetPolicyRelation[network][rule.action]) {
+                        subnetPolicyRelation[network][rule.action] = 0;
+                    }
+                    subnetPolicyRelation[network][rule.action]++;
+                }
+            });
+        });
+
+        const labels = Object.keys(subnetPolicyRelation);
+        const datasets = [];
+        const actions = new Set();
+
+        Object.values(subnetPolicyRelation).forEach(actionCounts => {
+            Object.keys(actionCounts).forEach(action => actions.add(action));
+        });
+
+        actions.forEach(action => {
+            datasets.push({
+                label: action,
+                data: labels.map(subnet => subnetPolicyRelation[subnet][action] || 0),
+                backgroundColor: action.toLowerCase() === 'accept' ? '#28a745' : '#dc3545'
+            });
+        });
+
+        const ctx = document.getElementById('subnetPolicyRelationChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                title: {
+                    display: true,
+                    text: translations[currentLanguage].subnetPolicyRelation
+                },
+                scales: {
+                    xAxes: [{
+                        stacked: true
+                    }],
+                    yAxes: [{
+                        stacked: true,
+                        ticks: {
+                            beginAtZero: true
+                        }
+                    }]
+                }
+            }
+        });
+    }
+
+    function drawHostPolicyRelationChart(rules) {
+        const hostPolicyRelation = {};
+        rules.forEach(rule => {
+            const networks = rule.sourceNetworks.split(', ').concat(rule.destNetworks.split(', '));
+            networks.forEach(network => {
+                if (!network.includes('/') && network !== 'Any') {
+                    if (!hostPolicyRelation[network]) {
+                        hostPolicyRelation[network] = {};
+                    }
+                    if (!hostPolicyRelation[network][rule.action]) {
+                        hostPolicyRelation[network][rule.action] = 0;
+                    }
+                    hostPolicyRelation[network][rule.action]++;
+                }
+            });
+        });
+
+        const labels = Object.keys(hostPolicyRelation);
+        const datasets = [];
+        const actions = new Set();
+
+        Object.values(hostPolicyRelation).forEach(actionCounts => {
+            Object.keys(actionCounts).forEach(action => actions.add(action));
+        });
+
+        actions.forEach(action => {
+            datasets.push({
+                label: action,
+                data: labels.map(host => hostPolicyRelation[host][action] || 0),
+                backgroundColor: action.toLowerCase() === 'accept' ? '#28a745' : '#dc3545'
+            });
+        });
+
+        const ctx = document.getElementById('hostPolicyRelationChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                title: {
+                    display: true,
+                    text: translations[currentLanguage].hostPolicyRelation
+                },
+                scales: {
+                    xAxes: [{
+                        stacked: true
+                    }],
+                    yAxes: [{
+                        stacked: true,
+                        ticks: {
+                            beginAtZero: true
+                        }
+                    }]
+                }
+            }
+        });
+    }
+
+    function generateRelationshipChart() {
+        const selectedRuleId = document.getElementById('ruleSelect').value;
+        if (!selectedRuleId) {
+            alert(currentLanguage === 'en' ? 'Please select a rule' : '請選擇一條規則');
+            return;
+        }
+
+        const selectedRule = globalRules.find(rule => rule.id.toString() === selectedRuleId);
+        if (!selectedRule) {
+            alert(currentLanguage === 'en' ? 'Rule not found' : '找不到規則');
+            return;
+        }
+
+        const nodes = new vis.DataSet();
+        const edges = new vis.DataSet();
+
+        // Add the selected rule node
+        nodes.add({ id: selectedRule.id, label: `Rule ${selectedRule.id}`, group: 'rule' });
+
+        // Add source zones and networks
+        selectedRule.sourceZones.split(', ').forEach(zone => {
+            if (zone !== 'Any') {
+                nodes.add({ id: `src_zone_${zone}`, label: zone, group: 'zone' });
+                edges.add({ from: `src_zone_${zone}`, to: selectedRule.id, arrows: 'to' });
+            }
+        });
+
+        selectedRule.sourceNetworks.split(', ').forEach(network => {
+            if (network !== 'Any') {
+                nodes.add({ id: `src_network_${network}`, label: network, group: 'network' });
+                edges.add({ from: `src_network_${network}`, to: selectedRule.id, arrows: 'to' });
+            }
+        });
+
+        // Add destination zones and networks
+        selectedRule.destZones.split(', ').forEach(zone => {
+            if (zone !== 'Any') {
+                nodes.add({ id: `dst_zone_${zone}`, label: zone, group: 'zone' });
+                edges.add({ from: selectedRule.id, to: `dst_zone_${zone}`, arrows: 'to' });
+            }
+        });
+
+        selectedRule.destNetworks.split(', ').forEach(network => {
+            if (network !== 'Any') {
+                nodes.add({ id: `dst_network_${network}`, label: network, group: 'network' });
+                edges.add({ from: selectedRule.id, to: `dst_network_${network}`, arrows: 'to' });
+            }
+        });
+
+        // Add services
+        selectedRule.services.split(', ').forEach(service => {
+            if (service !== 'Any') {
+                nodes.add({ id: `service_${service}`, label: service, group: 'service' });
+                edges.add({ from: selectedRule.id, to: `service_${service}`, arrows: 'to' });
+            }
+        });
+
+        const container = document.getElementById('relationshipChart');
+        const data = { nodes, edges };
+        const options = {
+            nodes: {
+                shape: 'dot',
+                size: 20,
+                font: {
+                    size: 12,
+                    color: '#000000'
+                },
+                borderWidth: 2
+            },
+            edges: {
+                width: 1
+            },
+            groups: {
+                rule: { color: { background: '#FFA500', border: '#FF8C00' } },
+                zone: { color: { background: '#6495ED', border: '#4169E1' } },
+                network: { color: { background: '#90EE90', border: '#32CD32' } },
+                service: { color: { background: '#FFB6C1', border: '#FF69B4' } }
+            },
+            physics: false,
+            manipulation: {
+                enabled: true
+            }
+        };
+        if (network) {
+            network.destroy();
+        }
+        network = new vis.Network(container, data, options);
+
+        updateChartLegend();
+    }
+
+    function updateChartLegend() {
+        const legend = document.getElementById('chartLegend');
+        legend.innerHTML = '';
+        const groups = [
+            { name: translations[currentLanguage].legendRule, color: '#FFA500' },
+            { name: translations[currentLanguage].legendZone, color: '#6495ED' },
+            { name: translations[currentLanguage].legendNetwork, color: '#90EE90' },
+            { name: translations[currentLanguage].legendService, color: '#FFB6C1' }
+        ];
+
+        groups.forEach(group => {
+            const legendItem = document.createElement('div');
+            legendItem.className = 'legend-item';
+            const colorBox = document.createElement('div');
+            colorBox.className = 'legend-color';
+            colorBox.style.backgroundColor = group.color;
+            const label = document.createElement('span');
+            label.textContent = group.name;
+            legendItem.appendChild(colorBox);
+            legendItem.appendChild(label);
+            legend.appendChild(legendItem);
+        });
+    }
+
+    function updateFilterOptions(rules) {
+        const nameFilter = document.getElementById('nameFilter');
+        const sourceFilter = document.getElementById('sourceFilter');
+        const destFilter = document.getElementById('destFilter');
+        const serviceFilter = document.getElementById('serviceFilter');
+        const actionFilter = document.getElementById('actionFilter');
+
+        // Clear existing options
+        [nameFilter, sourceFilter, destFilter, serviceFilter, actionFilter].forEach(filter => {
+            filter.innerHTML = '<option value="">All</option>';
+        });
+
+        // Collect unique values
+        const names = new Set();
+        const sources = new Set();
+        const destinations = new Set();
+        const services = new Set();
+        const actions = new Set();
+
+        rules.forEach(rule => {
+            names.add(rule.name);
+            rule.sourceZones.split(', ').forEach(zone => sources.add(zone));
+            rule.sourceNetworks.split(', ').forEach(network => sources.add(network));
+            rule.destZones.split(', ').forEach(zone => destinations.add(zone));
+            rule.destNetworks.split(', ').forEach(network => destinations.add(network));
+            rule.services.split(', ').forEach(service => services.add(service));
+            actions.add(rule.action);
+        });
+
+        // Add options to filters
+        names.forEach(name => nameFilter.add(new Option(name, name)));
+        sources.forEach(source => sourceFilter.add(new Option(source, source)));
+        destinations.forEach(dest => destFilter.add(new Option(dest, dest)));
+        services.forEach(service => serviceFilter.add(new Option(service, service)));
+        actions.forEach(action => actionFilter.add(new Option(action, action)));
+    }
+
+    function applyFilters() {
+        const nameFilter = document.getElementById('nameFilter').value;
+        const sourceFilter = document.getElementById('sourceFilter').value;
+        const destFilter = document.getElementById('destFilter').value;
+        const serviceFilter = document.getElementById('serviceFilter').value;
+        const actionFilter = document.getElementById('actionFilter').value;
+
+        const filteredRules = globalRules.filter(rule => {
+            return (!nameFilter || rule.name === nameFilter) &&
+                   (!sourceFilter || rule.sourceZones.includes(sourceFilter) || rule.sourceNetworks.includes(sourceFilter)) &&
+                   (!destFilter || rule.destZones.includes(destFilter) || rule.destNetworks.includes(destFilter)) &&
+                   (!serviceFilter || rule.services.includes(serviceFilter)) &&
+                   (!actionFilter || rule.action === actionFilter);
+        });
+
+        displayAnalysis(filteredRules);
+    }
+
+    function resetFilters() {
+        document.getElementById('nameFilter').value = '';
+        document.getElementById('sourceFilter').value = '';
+        document.getElementById('destFilter').value = '';
+        document.getElementById('serviceFilter').value = '';
+        document.getElementById('actionFilter').value = '';
+        displayAnalysis(globalRules);
+    }
+
+    function displayStatistics(rules) {
+        const totalRules = rules.length;
+        const totalObjects = new Set(rules.flatMap(rule => 
+            rule.sourceNetworks.split(', ').concat(rule.destNetworks.split(', '))
+        )).size;
+        const totalServices = new Set(rules.flatMap(rule => rule.services.split(', '))).size;
+        const totalAccept = rules.filter(rule => rule.action.toLowerCase() === 'accept').length;
+        const totalReject = rules.filter(rule => ['reject', 'drop'].includes(rule.action.toLowerCase())).length;
+        const totalSubnets = new Set(rules.flatMap(rule => 
+            rule.sourceNetworks.split(', ').concat(rule.destNetworks.split(', '))
+                .filter(network => network.includes('/'))
+        )).size;
+
+        const statisticsHtml = `
+            <h3>${translations[currentLanguage].statistics}</h3>
+            <p>${translations[currentLanguage].totalRules}: ${totalRules}</p>
+            <p>${translations[currentLanguage].totalObjects}: ${totalObjects}</p>
+            <p>${translations[currentLanguage].totalServices}: ${totalServices}</p>
+            <p>${translations[currentLanguage].totalAccept}: ${totalAccept}</p>
+            <p>${translations[currentLanguage].totalReject}: ${totalReject}</p>
+            <p>${translations[currentLanguage].totalSubnets}: ${totalSubnets}</p>
+        `;
+
+        document.getElementById('statistics').innerHTML = statisticsHtml;
+    }
+
+    function updateRuleSelect() {
+        const ruleSelect = document.getElementById('ruleSelect');
+        ruleSelect.innerHTML = `<option value="">${translations[currentLanguage].selectRule}</option>`;
+        globalRules.forEach(rule => {
+            ruleSelect.add(new Option(`Rule ${rule.id}: ${rule.name}`, rule.id));
+        });
+    }
+
+    function exportToCSV() {
+        let csv = 'ID,Name,Source Zones,Source Networks,Destination Zones,Destination Networks,Services,Action\n';
+        globalRules.forEach(rule => {
+            csv += `${rule.id},"${rule.name}","${rule.sourceZones}","${rule.sourceNetworks}","${rule.destZones}","${rule.destNetworks}","${rule.services}","${rule.action}"\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        saveAs(blob, 'firewall_rules.csv');
+    }
+
+    function exportSubnetToCSV() {
+        const subnetObjects = {};
+        globalRules.forEach(rule => {
+            const networks = rule.sourceNetworks.split(', ').concat(rule.destNetworks.split(', '));
+            networks.forEach(network => {
+                if (network.includes('/')) {
+                    if (!subnetObjects[network]) {
+                        subnetObjects[network] = new Set();
+                    }
+                    subnetObjects[network].add(rule.id);
+                }
+            });
+        });
+
+        let csv = 'Subnet,Related Rules\n';
+        Object.entries(subnetObjects).forEach(([subnet, rules]) => {
+            csv += `"${subnet}","${Array.from(rules).join(', ')}"\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        saveAs(blob, 'subnet_objects.csv');
+    }
+
+    function exportHostObjectToCSV() {
+        const hostObjects = {};
+        globalRules.forEach(rule => {
+            const networks = rule.sourceNetworks.split(', ').concat(rule.destNetworks.split(', '));
+            networks.forEach(network => {
+                if (!network.includes('/') && network !== 'Any') {
+                    if (!hostObjects[network]) {
+                        hostObjects[network] = new Set();
+                    }
+                    hostObjects[network].add(rule.id);
+                }
+            });
+        });
+
+        let csv = 'Host Object,Related Rules\n';
+        Object.entries(hostObjects).forEach(([host, rules]) => {
+            csv += `"${host}","${Array.from(rules).join(', ')}"\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        saveAs(blob, 'host_objects.csv');
+    }
+
+    function exportServiceObjectToCSV() {
+        const serviceObjects = {};
+        globalRules.forEach(rule => {
+            const services = rule.services.split(', ');
+            services.forEach(service => {
+                if (service !== 'Any') {
+                    if (!serviceObjects[service]) {
+                        serviceObjects[service] = new Set();
+                    }
+                    serviceObjects[service].add(rule.id);
+                }
+            });
+        });
+
+        let csv = 'Service Object,Related Rules\n';
+        Object.entries(serviceObjects).forEach(([service, rules]) => {
+            csv += `"${service}","${Array.from(rules).join(', ')}"\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        saveAs(blob, 'service_objects.csv');
+    }
+
+    function generateFullRelationshipChart() {
+        const nodes = new vis.DataSet();
+        const edges = new vis.DataSet();
+
+        globalRules.forEach(rule => {
+            nodes.add({ id: `rule_${rule.id}`, label: `Rule ${rule.id}`, group: 'rule' });
+
+            rule.sourceZones.split(', ').forEach(zone => {
+                if (zone !== 'Any') {
+                    const zoneId = `src_zone_${zone}`;
+                    if (!nodes.get(zoneId)) {
+                        nodes.add({ id: zoneId, label: zone, group: 'zone' });
+                    }
+                    edges.add({ from: zoneId, to: `rule_${rule.id}`, arrows: 'to' });
+                }
+            });
+
+            rule.sourceNetworks.split(', ').forEach(network => {
+                if (network !== 'Any') {
+                    const networkId = `src_network_${network}`;
+                    if (!nodes.get(networkId)) {
+                        nodes.add({ id: networkId, label: network, group: 'network' });
+                    }
+                    edges.add({ from: networkId, to: `rule_${rule.id}`, arrows: 'to' });
+                }
+            });
+
+            rule.destZones.split(', ').forEach(zone => {
+                if (zone !== 'Any') {
+                    const zoneId = `dst_zone_${zone}`;
+                    if (!nodes.get(zoneId)) {
+                        nodes.add({ id: zoneId, label: zone, group: 'zone' });
+                    }
+                    edges.add({ from: `rule_${rule.id}`, to: zoneId, arrows: 'to' });
+                }
+            });
+
+            rule.destNetworks.split(', ').forEach(network => {
+                if (network !== 'Any') {
+                    const networkId = `dst_network_${network}`;
+                    if (!nodes.get(networkId)) {
+                        nodes.add({ id: networkId, label: network, group: 'network' });
+                    }
+                    edges.add({ from: `rule_${rule.id}`, to: networkId, arrows: 'to' });
+                }
+            });
+
+            rule.services.split(', ').forEach(service => {
+                if (service !== 'Any') {
+                    const serviceId = `service_${service}`;
+                    if (!nodes.get(serviceId)) {
+                        nodes.add({ id: serviceId, label: service, group: 'service' });
+                    }
+                    edges.add({ from: `rule_${rule.id}`, to: serviceId, arrows: 'to' });
+                }
+            });
+        });
+
+        const container = document.getElementById('relationshipChart');
+        const data = { nodes, edges };
+        const options = {
+            nodes: {
+                shape: 'dot',
+                size: 10,
+                font: {
+                    size: 8,
+                    color: '#000000'
+                },
+                borderWidth: 1
+            },
+            edges: {
+                width: 0.5
+            },
+            groups: {
+                rule: { color: { background: '#FFA500', border: '#FF8C00' } },
+                zone: { color: { background: '#6495ED', border: '#4169E1' } },
+                network: { color: { background: '#90EE90', border: '#32CD32' } },
+                service: { color: { background: '#FFB6C1', border: '#FF69B4' } }
+            },
+            physics: {
+                stabilization: false,
+                barnesHut: {
+                    gravitationalConstant: -2000,
+                    centralGravity: 0.3,
+                    springLength: 95,
+                    springConstant: 0.04,
+                    damping: 0.09,
+                    avoidOverlap: 0
+                }
+            },
+            layout: {
+                improvedLayout: false
+            }
+        };
+        if (network) {
+            network.destroy();
+        }
+        network = new vis.Network(container, data, options);
+
+        updateChartLegend();
+    }
+
+    function exportRelationshipData() {
+        const relationshipData = globalRules.map(rule => ({
+            id: rule.id,
+            name: rule.name,
+            sourceZones: rule.sourceZones,
+            sourceNetworks: rule.sourceNetworks,
+            destZones: rule.destZones,
+            destNetworks: rule.destNetworks,
+            services: rule.services,
+            action: rule.action
+        }));
+
+        const jsonData = JSON.stringify(relationshipData, null, 2);
+        const blob = new Blob([jsonData], { type: 'application/json' });
+        saveAs(blob, 'firewall_relationship_data.json');
+    }
+
+    </script>
+</body>
+</html>

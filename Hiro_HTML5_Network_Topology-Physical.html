@@ -1,0 +1,553 @@
+<html><head><base href="https://networkvizapi.example.com/"><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Network Physical Connection Diagram</title><script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script><style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700&display=swap');
+
+body, html {
+    font-family: 'Noto Sans', Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+#initialButtons {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    background-image: url('https://source.unsplash.com/random/1920x1080?network');
+    background-size: cover;
+    background-position: center;
+    z-index: 1000;
+}
+
+#initialButtons::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: -1;
+}
+
+#initialButtons button {
+    margin: 10px;
+    padding: 15px 30px;
+    font-size: 18px;
+    color: white;
+    background-color: rgba(76, 175, 80, 0.8);
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#initialButtons button:hover {
+    background-color: rgba(69, 160, 73, 0.9);
+}
+
+#mainContent {
+    display: none;
+    width: 100%;
+    height: 100%;
+}
+
+#leftPanel {
+    width: 70%;
+    height: 100%;
+    float: left;
+    position: relative;
+}
+
+#network {
+    width: 100%;
+    height: 100%;
+    background-image: 
+        linear-gradient(to right, rgba(0,0,0,0.1) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0,0,0,0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+#rightPanel {
+    width: 30%;
+    height: 100%;
+    float: right;
+    padding: 20px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    background-color: #f9f9f9;
+}
+
+#controls {
+    margin-bottom: 20px;
+}
+
+#legend {
+    margin-top: 20px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.legend-color {
+    width: 20px;
+    height: 20px;
+    margin-right: 10px;
+}
+
+#topLeftButtons {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 100;
+    display: flex;
+    gap: 10px;
+}
+
+#fullscreenBtn, #langSwitchBtn {
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    background-color: rgba(76, 175, 80, 0.8);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+#fullscreenBtn:hover, #langSwitchBtn:hover {
+    background-color: rgba(69, 160, 73, 0.9);
+}
+
+#editForm, #edgeForm {
+    margin-top: 20px;
+}
+
+input, select, textarea {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+}
+
+button {
+    padding: 10px 20px;
+    cursor: pointer;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+</style></head><body>
+<div id="initialButtons">
+    <button onclick="showNewDiagram()" id="newDiagramBtn">Create New Diagram</button>
+    <button onclick="showLoadConfig()" id="loadConfigBtn">Load Configuration</button>
+</div>
+
+<div id="mainContent">
+    <div id="leftPanel">
+        <div id="topLeftButtons">
+            <button id="fullscreenBtn" onclick="toggleFullScreen()">Fullscreen</button>
+            <button id="langSwitchBtn" onclick="switchLanguage()">Switch Language | 切換語言</button>
+        </div>
+        <div id="network"></div>
+    </div>
+    <div id="rightPanel">
+        <div id="controls">
+            <button onclick="addNode()" id="addNodeBtn">Add Node</button>
+            <button onclick="addEdge()" id="addEdgeBtn">Add Edge</button>
+            <button onclick="downloadImage()" id="downloadBtn">Download Image</button>
+            <button onclick="downloadHTML()" id="downloadHTMLBtn">Download HTML</button>
+            <button onclick="exportData()" id="exportBtn">Export Data</button>
+            <input type="file" id="importFile" style="display: none;" onchange="importData(event)">
+            <button onclick="document.getElementById('importFile').click()" id="importBtn">Import Data</button>
+        </div>
+        <div id="legend">
+            <h3 id="legendTitle">Legend</h3>
+            <div class="legend-item"><span class="legend-color" style="background-color:#97C2FC"></span><span id="legendSwitch">Switch</span></div>
+            <div class="legend-item"><span class="legend-color" style="background-color:#FFFF00"></span><span id="legendAP">AP</span></div>
+            <div class="legend-item"><span class="legend-color" style="background-color:#FF9900"></span><span id="legendFirewall">Firewall</span></div>
+            <div class="legend-item"><span class="legend-color" style="background-color:#00CC66"></span><span id="legendSDWAN">SD-WAN</span></div>
+            <div class="legend-item"><span class="legend-color" style="background-color:#FFA500"></span><span id="legendOther">Other Devices</span></div>
+        </div>
+        <div id="editForm">
+            <h3 id="editTitle">Edit Node</h3>
+            <input type="hidden" id="nodeId">
+            <textarea id="nodeLabel" placeholder="Node Label" rows="3"></textarea>
+            <select id="nodeType">
+                <option value="switch">Switch</option>
+                <option value="ap">AP</option>
+                <option value="firewall">Firewall</option>
+                <option value="sdwan">SD-WAN</option>
+                <option value="other">Other</option>
+            </select>
+            <button onclick="saveNode()" id="saveBtn">Save</button>
+            <button onclick="cancelEdit()" id="cancelBtn">Cancel</button>
+        </div>
+        <div id="edgeForm">
+            <h3 id="edgeTitle">Edit Edge</h3>
+            <input type="hidden" id="edgeId">
+            <input type="text" id="edgeFrom" placeholder="From Node" readonly>
+            <input type="text" id="edgeTo" placeholder="To Node" readonly>
+            <input type="text" id="edgeLabel" placeholder="Edge Label">
+            <button onclick="saveEdge()" id="saveEdgeBtn">Save</button>
+            <button onclick="cancelEdgeEdit()" id="cancelEdgeBtn">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let nodes, edges, network;
+let currentLanguage = 'en';
+
+const translations = {
+    en: {
+        title: 'Network Physical Connection Diagram',
+        legendTitle: 'Legend',
+        legendSwitch: 'Switch',
+        legendAP: 'AP',
+        legendFirewall: 'Firewall',
+        legendSDWAN: 'SD-WAN',
+        legendOther: 'Other Devices',
+        addNodeBtn: 'Add Node',
+        addEdgeBtn: 'Add Edge',
+        downloadBtn: 'Download Image',
+        downloadHTMLBtn: 'Download HTML',
+        exportBtn: 'Export Data',
+        importBtn: 'Import Data',
+        editTitle: 'Edit Node',
+        edgeTitle: 'Edit Edge',
+        saveBtn: 'Save',
+        cancelBtn: 'Cancel',
+        newDiagramBtn: 'Create New Diagram',
+        loadConfigBtn: 'Load Configuration',
+        fullscreenBtn: 'Fullscreen',
+        langSwitchBtn: 'Switch Language | 切換語言'
+    },
+    zh: {
+        title: '設備實體接線圖',
+        legendTitle: '圖例',
+        legendSwitch: '交換機',
+        legendAP: 'AP',
+        legendFirewall: '防火墻',
+        legendSDWAN: 'SD-WAN',
+        legendOther: '其他設備',
+        addNodeBtn: '新增節點',
+        addEdgeBtn: '新增連結線',
+        downloadBtn: '下載圖片',
+        downloadHTMLBtn: '下載HTML',
+        exportBtn: '匯出數據',
+        importBtn: '匯入數據',
+        editTitle: '編輯節點',
+        edgeTitle: '編輯連結線',
+        saveBtn: '保存',
+        cancelBtn: '取消',
+        newDiagramBtn: '繪製新接線圖',
+        loadConfigBtn: '載入設定',
+        fullscreenBtn: '全螢幕',
+        langSwitchBtn: 'Switch Language | 切換語言'
+    }
+};
+
+function switchLanguage() {
+    currentLanguage = currentLanguage === 'zh' ? 'en' : 'zh';
+    updateUILanguage();
+}
+
+function updateUILanguage() {
+    document.getElementById('legendTitle').innerText = translations[currentLanguage].legendTitle;
+    document.getElementById('legendSwitch').innerText = translations[currentLanguage].legendSwitch;
+    document.getElementById('legendAP').innerText = translations[currentLanguage].legendAP;
+    document.getElementById('legendFirewall').innerText = translations[currentLanguage].legendFirewall;
+    document.getElementById('legendSDWAN').innerText = translations[currentLanguage].legendSDWAN;
+    document.getElementById('legendOther').innerText = translations[currentLanguage].legendOther;
+    document.getElementById('addNodeBtn').innerText = translations[currentLanguage].addNodeBtn;
+    document.getElementById('addEdgeBtn').innerText = translations[currentLanguage].addEdgeBtn;
+    document.getElementById('downloadBtn').innerText = translations[currentLanguage].downloadBtn;
+    document.getElementById('downloadHTMLBtn').innerText = translations[currentLanguage].downloadHTMLBtn;
+    document.getElementById('exportBtn').innerText = translations[currentLanguage].exportBtn;
+    document.getElementById('importBtn').innerText = translations[currentLanguage].importBtn;
+    document.getElementById('editTitle').innerText = translations[currentLanguage].editTitle;
+    document.getElementById('edgeTitle').innerText = translations[currentLanguage].edgeTitle;
+    document.getElementById('saveBtn').innerText = translations[currentLanguage].saveBtn;
+    document.getElementById('cancelBtn').innerText = translations[currentLanguage].cancelBtn;
+    document.getElementById('saveEdgeBtn').innerText = translations[currentLanguage].saveBtn;
+    document.getElementById('cancelEdgeBtn').innerText = translations[currentLanguage].cancelBtn;
+    document.getElementById('newDiagramBtn').innerText = translations[currentLanguage].newDiagramBtn;
+    document.getElementById('loadConfigBtn').innerText = translations[currentLanguage].loadConfigBtn;
+    document.getElementById('fullscreenBtn').innerText = translations[currentLanguage].fullscreenBtn;
+    document.getElementById('langSwitchBtn').innerText = translations[currentLanguage].langSwitchBtn;
+}
+
+function showNewDiagram() {
+    document.getElementById('initialButtons').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+    initializeNetwork();
+}
+
+function showLoadConfig() {
+    document.getElementById('importFile').click();
+}
+
+function initializeNetwork() {
+    nodes = new vis.DataSet([]);
+    edges = new vis.DataSet([]);
+
+    let container = document.getElementById('network');
+    let data = {
+        nodes: nodes,
+        edges: edges
+    };
+    let options = {
+        physics: {
+            enabled: true,
+            barnesHut: {
+                gravitationalConstant: -2000,
+                centralGravity: 0.3,
+                springLength: 95,
+                springConstant: 0.04,
+                damping: 0.09,
+                avoidOverlap: 0.1
+            },
+        },
+        layout: {
+            improvedLayout: true,
+        },
+        nodes: {
+            shape: 'box',
+            font: {
+                size: 12,
+                face: 'Noto Sans',
+                multi: 'html',
+                align: 'center',
+            },
+        },
+        edges: {
+            font: {
+                size: 11,
+                face: 'Noto Sans',
+                align: 'middle',
+            },
+            arrows: {
+                to: {
+                    enabled: false,
+                },
+            },
+            smooth: {
+                enabled: true,
+                type: 'continuous',
+            },
+        },
+        manipulation: {
+            enabled: true,
+            addNode: function(nodeData, callback) {
+                showEditForm(nodeData, callback, true);
+            },
+            editNode: function(nodeData, callback) {
+                showEditForm(nodeData, callback, false);
+            },
+            addEdge: function(edgeData, callback) {
+                showEdgeForm(edgeData, callback, true);
+            },
+            editEdge: {
+                editWithoutDrag: function(edgeData, callback) {
+                    showEdgeForm(edgeData, callback, false);
+                }
+            }
+        },
+        interaction: {
+            dragNodes: true,
+            dragView: true,
+            zoomView: true
+        }
+    };
+
+    network = new vis.Network(container, data, options);
+
+    network.on("doubleClick", function(params) {
+        if (params.nodes.length === 1) {
+            let nodeId = params.nodes[0];
+            let node = nodes.get(nodeId);
+            showEditForm(node, null, false);
+        } else if (params.edges.length === 1) {
+            let edgeId = params.edges[0];
+            let edge = edges.get(edgeId);
+            showEdgeForm(edge, null, false);
+        }
+    });
+}
+
+function addNode() {
+    network.addNodeMode();
+}
+
+function addEdge() {
+    network.addEdgeMode();
+}
+
+function showEditForm(nodeData, callback, isNewNode) {
+    document.getElementById('editForm').style.display = 'block';
+    document.getElementById('editTitle').innerText = isNewNode ? 
+        (currentLanguage === 'zh' ? '新增節點' : 'Add Node') : 
+        (currentLanguage === 'zh' ? '編輯節點' : 'Edit Node');
+    document.getElementById('nodeId').value = nodeData.id || '';
+    document.getElementById('nodeLabel').value = nodeData.label || '';
+    document.getElementById('nodeType').value = 
+        nodeData.color === '#97C2FC' ? 'switch' : 
+        nodeData.color === '#FFFF00' ? 'ap' :
+        nodeData.color === '#FF9900' ? 'firewall' :
+        nodeData.color === '#00CC66' ? 'sdwan' : 'other';
+    
+    document.getElementById('saveBtn').onclick = function() {
+        saveNode(callback, isNewNode);
+    };
+}
+
+function saveNode(callback, isNewNode) {
+    let nodeId = document.getElementById('nodeId').value;
+    let nodeLabel = document.getElementById('nodeLabel').value;
+    let nodeType = document.getElementById('nodeType').value;
+    let nodeColor = nodeType === 'switch' ? '#97C2FC' : 
+                    nodeType === 'ap' ? '#FFFF00' :
+                    nodeType === 'firewall' ? '#FF9900' :
+                    nodeType === 'sdwan' ? '#00CC66' : '#FFA500';
+    
+    let updatedNode = {
+        id: nodeId || Date.now().toString(),
+        label: nodeLabel,
+        color: nodeColor,
+        shape: 'box'
+    };
+
+    if (isNewNode) {
+        nodes.add(updatedNode);
+    } else {
+        nodes.update(updatedNode);
+    }
+
+    if (callback) callback(updatedNode);
+    document.getElementById('editForm').style.display = 'none';
+}
+
+function cancelEdit() {
+    document.getElementById('editForm').style.display = 'none';
+}
+
+function showEdgeForm(edgeData, callback, isNewEdge) {
+    document.getElementById('edgeForm').style.display = 'block';
+    document.getElementById('edgeTitle').innerText = isNewEdge ? 
+        (currentLanguage === 'zh' ? '新增連結線' : 'Add Edge') : 
+        (currentLanguage === 'zh' ? '編輯連結線' : 'Edit Edge');
+    document.getElementById('edgeId').value = edgeData.id || '';
+    document.getElementById('edgeFrom').value = edgeData.from || '';
+    document.getElementById('edgeTo').value = edgeData.to || '';
+    document.getElementById('edgeLabel').value = edgeData.label || '';
+    
+    document.getElementById('saveEdgeBtn').onclick = function() {
+        saveEdge(callback, isNewEdge);
+    };
+}
+
+function saveEdge(callback, isNewEdge) {
+    let edgeId = document.getElementById('edgeId').value;
+    let edgeFrom = document.getElementById('edgeFrom').value;
+    let edgeTo = document.getElementById('edgeTo').value;
+    let edgeLabel = document.getElementById('edgeLabel').value;
+    
+    let updatedEdge = {
+        id: edgeId || Date.now().toString(),
+        from: edgeFrom,
+        to: edgeTo,
+        label: edgeLabel
+    };
+
+    if (isNewEdge) {
+        edges.add(updatedEdge);
+    } else {
+        edges.update(updatedEdge);
+    }
+
+    if (callback) callback(updatedEdge);
+    document.getElementById('edgeForm').style.display = 'none';
+}
+
+function cancelEdgeEdit() {
+    document.getElementById('edgeForm').style.display = 'none';
+}
+
+function downloadImage() {
+    html2canvas(document.body).then(canvas => {
+        let link = document.createElement('a');
+        link.download = 'network_diagram.png';
+        link.href = canvas.toDataURL();
+        link.click();
+    });
+}
+
+function downloadHTML() {
+    let htmlContent = document.documentElement.outerHTML;
+    let blob = new Blob([htmlContent], {type: 'text/html'});
+    let url = URL.createObjectURL(blob);
+    let link = document.createElement('a');
+    link.download = 'network_diagram.html';
+    link.href = url;
+    link.click();
+}
+
+function exportData() {
+    let exportData = {
+        nodes: nodes.get(),
+        edges: edges.get()
+    };
+    let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData));
+    let downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "network_data.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+}
+
+function importData(event) {
+    let file = event.target.files[0];
+    let reader = new FileReader();
+    reader.onload = function(e) {
+        let importedData = JSON.parse(e.target.result);
+        document.getElementById('initialButtons').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+        initializeNetwork();
+        nodes.clear();
+        edges.clear();
+        nodes.add(importedData.nodes);
+        edges.add(importedData.edges);
+    };
+    reader.readAsText(file);
+}
+
+function toggleFullScreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+    }
+}
+
+updateUILanguage();
+</script></body></html>
